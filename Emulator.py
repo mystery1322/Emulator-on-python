@@ -20,17 +20,16 @@ def process_command():
     else:
         cmd = parts[0]
         args = parts[1:]
-
-    match cmd:
-        case "ls":
-            output = f"ls called with args: {args}\n"
-        case "cd":
-            output = f"cd called with args: {args}\n"
-        case "exit":
-            root.destroy()
-            return
-        case _:
-            output = f"Error: unknown command '{cmd}'\n"
+        match cmd:
+            case "ls":
+                output = f"ls called with args: {args}\n"
+            case "cd":
+                output = f"cd called with args: {args}\n"
+            case "exit":
+                root.destroy()
+                return
+            case _:
+                output = f"Error: unknown command '{cmd}'\n"
 
     # Добавляем вывод в текстовое поле
     text.config(state=tk.NORMAL)
