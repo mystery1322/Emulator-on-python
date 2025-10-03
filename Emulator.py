@@ -2,18 +2,18 @@ import tkinter as tk
 import os
 
 def process_command():
-    command = entry.get().strip()
+    command = entry.get().strip() # При нажатии энтер получаем текст
     entry.delete(0, tk.END)  # Очищаем поле ввода
 
     # Разбиваем команду на части и обрабатываем переменные окружения
     parts = []
     for part in command.split():
-        if part.startswith('$'):
-            # Заменяем переменные окружения
-            var_name = part[1:]
-            parts.append(os.environ.get(var_name, part))
-        else:
-            parts.append(part)
+        # if part.startswith('$'):
+        #     # Заменяем переменные окружения
+        #     var_name = part[1:]
+        #     parts.append(os.environ.get(var_name, part))
+        # else:
+        parts.append(part)
 
     if not parts:  # Если команда пустая
         output = ""
@@ -21,6 +21,22 @@ def process_command():
         cmd = parts[0]
         args = parts[1:]
         match cmd:
+            case "echo":
+                if parts[1].startswith('$'):
+                    expanded = [os.environ.get(a[1:], '') if a.startswith('$') else a for a in args]
+                    output = " ".join(expanded) + "\n"
+                # expanded = []
+                # for a in args:
+                #     if a.startswith('$'):
+                #         key = a[1:]
+                #         value = os.environ.get(key, '')
+                #         expanded.append(value)
+                #     else:
+                #         expanded.append(a)
+                #
+                # output = " ".join(expanded) + "\n"
+                else:
+                    output = f"echo called with args: {args}\n"
             case "ls":
                 output = f"ls called with args: {args}\n"
             case "cd":
