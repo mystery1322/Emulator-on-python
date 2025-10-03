@@ -1,4 +1,3 @@
-# Пример стартового скрипта: покажем приветствие и список
 echo Hello from startup script
-ls
+ls mambo
 echo $USERNAME

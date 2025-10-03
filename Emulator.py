@@ -1,119 +1,89 @@
-#!/usr/bin/env python3
-
 import tkinter as tk
 import os
 import argparse
-import sys
+from typing import List
 
-current_vfs_path = None  # глобальная "виртуальная" рабочая директория (строка или None)
+# Здесь мы храним значение --vfs-path
+current_vfs_path: str | None = None
 
-def expand_args(args):
-    """Расширяет переменные окружения вида $VAR и ~ в списке аргументов."""
-    expanded = []
+
+# Анализ аргументов командной строки
+def parse_cli_args():
+
+    parser = argparse.ArgumentParser(
+        description="Emulator - Stage 2 (configuration). Stubs for cd/ls, startup script playback."
+    )
+    parser.add_argument("--vfs-path", "-v", help="Path to physical VFS location (for debugging)", default=None)
+    parser.add_argument("--startup-script", "-s", help="Path to startup script (lines, '#' comments)", default=None)
+    return parser.parse_args()
+
+def expand_args(args: List[str]) -> List[str]:
+
+    #Разворачивает переменные окружения и символ ~ в каждом аргументе.
+    result: List[str] = []
     for a in args:
-        if not a:
-            expanded.append(a)
+        if a is None or a == "":
+            result.append(a)
             continue
-        a = os.path.expanduser(os.path.expandvars(a))
-        expanded.append(a)
-    return expanded
+        # Сначала разворачиваем переменные окружения ($VAR или %VAR%), затем ~
+        expanded = os.path.expandvars(a)
+        expanded = os.path.expanduser(expanded)
+        result.append(expanded)
+    return result
 
-def _resolve_target_path(target):
-    """
-    Привести target (строка) к абсолютному нормализованному пути.
-    Если target относительный и current_vfs_path задан — сделать путь относительно current_vfs_path.
-    """
-    if not target:
-        return None
-    # уже расширили переменные в caller, но на всякий случай:
-    target = os.path.expanduser(os.path.expandvars(target))
-    target = os.path.normpath(target)
-    if not os.path.isabs(target):
-        base = current_vfs_path or os.getcwd()
-        target = os.path.normpath(os.path.join(base, target))
-    # окончательно абсолютный:
-    target = os.path.abspath(target)
-    return target
 
-def handle_command_internals(command):
-    """
-    Обрабатывает команду (строку) и возвращает текст-вывода.
-    Поддерживаемые команды: echo, ls, cd, mkdir, exit.
-    """
-    global current_vfs_path
+# Основная обработка команд (заглушки)
+def handle_command_internals(command: str) -> str:
     parts = command.strip().split()
     if not parts:
-        return ""
+        return ""  # пустая строка — ничего не выводим
+
     cmd = parts[0]
     args = parts[1:]
 
-    if cmd == "echo":
-        args = expand_args(args)
-        return " ".join(args) + "\n"
+    # Используем match/case для краткости и читабельности
+    match cmd:
+        case "echo":
+            expanded = expand_args(args)
+            # Возвращаем одну строку, добавляем перевод строки в конце
+            return " ".join(expanded) + "\n"
 
-    elif cmd == "ls":
-        # если аргумент есть — используем его, иначе текущий vfs-path или cwd
-        if args:
-            arg = args[0]
-            target = _resolve_target_path(arg)
-        else:
-            target = current_vfs_path or os.getcwd()
-        if not target:
-            target = os.getcwd()
-        if not os.path.exists(target):
-            return f"ls: path not found: {target}\n"
-        if os.path.isdir(target):
+        case "ls":
+            # Заглушка: показываем какие аргументы были переданы.
+            return f"ls called with args: {args}\n"
+
+        case "cd":
+            # (не меняем current_vfs_path здесь — т.к. это заглушка)
+            return f"cd called with args: {args}\n"
+
+        case "exit":
             try:
-                names = os.listdir(target)
-                if not names:
-                    return "(empty)\n"
-                return "  ".join(names) + "\n"
-            except Exception as e:
-                return f"ls error: {e}\n"
-        else:
-            # если это файл — вернуть имя файла
-            return f"{os.path.basename(target)}\n"
+                root.destroy()
+            except NameError:
+                # Если root не задан — просто ничего не делаем
+                pass
+            return ""
+        case _:
+            # Неизвестная команда — возвращаем понятную ошибку
+            return f"Error: unknown command '{cmd}'\n"
 
-    elif cmd == "cd":
-        if not args:
-            return "cd: missing argument\n"
-        candidate = args[0]
-        new_path = _resolve_target_path(candidate)
-        if not os.path.exists(new_path):
-            return f"cd: no such file or directory: {new_path}\n"
-        if not os.path.isdir(new_path):
-            return f"cd: not a directory: {new_path}\n"
-        current_vfs_path = new_path
-        return f"changed vfs path to: {current_vfs_path}\n"
 
-    elif cmd == "mkdir":
-        if not args:
-            return "mkdir: missing directory name\n"
-        name = args[0]
-        target = _resolve_target_path(name)
-        try:
-            os.makedirs(target, exist_ok=True)
-            return f"mkdir: created {target}\n"
-        except Exception as e:
-            return f"mkdir error: {e}\n"
+# Работа с виджетом — безопасная вставка текста
+def insert_text(text_widget: tk.Text, s: str) -> None:
+    """
+    Вставляет строку s в text_widget в состоянии read-only (мы временно включаем запись).
+    Поддерживает автопрокрутку вниз.
+    """
+    text_widget.config(state=tk.NORMAL)  # включаем запись
+    text_widget.insert(tk.END, s)  # вставляем текст
+    text_widget.see(tk.END)  # прокручиваем к концу
+    text_widget.config(state=tk.DISABLED)  # снова делаем read-only
 
-    elif cmd == "exit":
-        try:
-            root.destroy()
-        except NameError:
-            pass
-        return ""
+# Выполнение одной команды (показ ввода + вывод)
+def execute_command_line(command: str, show_input: bool = True) -> str:
 
-    else:
-        return f"Error: unknown command '{cmd}'\n"
+    #Выполняет одну строку команды: показывает 'ввод' (VFS> ...) и затем вывод (результат).
 
-def insert_text(text_widget, s):
-    text_widget.config(state=tk.NORMAL)
-    text_widget.insert(tk.END, s)
-    text_widget.see(tk.END)
-    text_widget.config(state=tk.DISABLED)
-
-def execute_command_line(command, show_input=True):
     if show_input:
         insert_text(text, f"VFS> {command}\n")
     output = handle_command_internals(command)
@@ -121,23 +91,35 @@ def execute_command_line(command, show_input=True):
         insert_text(text, output)
     return output
 
-def process_command_from_entry():
+# Обработка ввода из поля Entry (по Enter или кнопке Run)
+def process_command_from_entry() -> None:
+    """
+    Берёт текст из поля ввода (entry), очищает поле и выполняет команду.
+    Используется как callback для нажатия Enter и для кнопки 'Run'.
+    """
     command = entry.get().strip()
     entry.delete(0, tk.END)
     execute_command_line(command)
 
-def run_startup_script_lines(lines):
-    delay = 200  # ms между строками
+# Проигрывание стартового скрипта построчно (имитация диалога)
+def run_startup_script_lines(lines: List[str]) -> None:
+
+    #Проигрывает список строк start-up скрипта, имитируя диалог:
+
+    delay_ms = 200
     scheduled_index = 0
     for raw in lines:
         line = raw.rstrip("\n")
+        # Пропускаем пустые строки и комментарии (комментарий — строка, начинающаяся с '#')
         if not line.strip() or line.lstrip().startswith('#'):
             continue
-        # захватываем текущее значение line через default-аргумент
-        root.after(delay * scheduled_index, lambda cmd=line: execute_command_line(cmd, show_input=True))
+        # Планируем выполнение конкретной строки с задержкой
+        root.after(delay_ms * scheduled_index, lambda cmd=line: execute_command_line(cmd, show_input=True))
         scheduled_index += 1
 
-def load_and_run_startup_script(path):
+# Загрузка и запуск стартового скрипта (файла)
+def load_and_run_startup_script(path: str) -> None:
+
     if not os.path.isfile(path):
         insert_text(text, f"Startup script not found: {path}\n")
         return
@@ -147,48 +129,41 @@ def load_and_run_startup_script(path):
     except Exception as e:
         insert_text(text, f"Failed to read startup script {path}: {e}\n")
         return
+
     insert_text(text, f"# running startup script: {path}\n")
     run_startup_script_lines(lines)
 
-def parse_cli_args():
-    parser = argparse.ArgumentParser(description="Emulator - VFS (GUI) with startup script support")
-    parser.add_argument("--vfs-path", "-v", help="Path to physical VFS location", default=None)
-    parser.add_argument("--startup-script", "-s", help="Path to startup script (lines, '#' comments)", default=None)
-    return parser.parse_args()
-
-# ---------- MAIN ----------
+# MAIN — инициализация GUI и запуск
 args = parse_cli_args()
+current_vfs_path = args.vfs_path  # просто сохраняем для отладочного вывода
 
-# Нормализуем и приводим vfs-path к абсолютному пути, если он задан
-if args.vfs_path:
-    resolved = os.path.expanduser(os.path.expandvars(args.vfs_path))
-    resolved = os.path.normpath(resolved)
-    resolved = os.path.abspath(resolved)
-    current_vfs_path = resolved
-else:
-    current_vfs_path = None
-
+# Создаём окно и виджеты
 root = tk.Tk()
 root.title("Эмулятор - VFS (конфиг)")
 
+# Основное текстовое поле — в режиме только для чтения (мы временно включаем запись при вставке)
 text = tk.Text(root, bg="black", fg="white", state=tk.DISABLED)
 text.pack(expand=True, fill=tk.BOTH)
 
+# Поле ввода + кнопка
 frame = tk.Frame(root)
 frame.pack(fill=tk.X)
 
 entry = tk.Entry(frame, bg="black", fg="white", insertbackground="white")
 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-entry.bind("<Return>", lambda event: process_command_from_entry())
+entry.bind("<Return>", lambda event: process_command_from_entry())  # Enter вызывает выполнение
 
 button = tk.Button(frame, text="Run", command=process_command_from_entry)
 button.pack(side=tk.RIGHT, padx=5, pady=5)
 
 entry.focus()
 
-insert_text(text, f"Startup parameters:\n  vfs-path: {current_vfs_path}\n  startup-script: {args.startup_script}\n\n")
+# При старте выводим отладочную информацию о параметрах (требование этапа)
+insert_text(text, f"Startup parameters:\n  vfs-path: {args.vfs_path}\n  startup-script: {args.startup_script}\n\n")
 
+# Если задан стартовый скрипт — запустим его через небольшую задержку,
 if args.startup_script:
     root.after(100, lambda: load_and_run_startup_script(args.startup_script))
 
+# Запуск основного цикла Tkinter (блокирующая функция)
 root.mainloop()

@@ -1,5 +1,4 @@
-# Демонстрация cd и ls
 echo Starting demo
-cd 
-ls
+cd tyler
+ls the creator
 echo Done
