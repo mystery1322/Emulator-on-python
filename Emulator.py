@@ -15,6 +15,23 @@ def parse_cli_args():
     parser.add_argument("--startup-script", "-s", help="Path to startup script (lines, '#' comments)", default=None)
     return parser.parse_args()
 
+def remove_inline_comment(line: str) -> str:
+    if not line:
+        return line
+    out_chars: List[str] = []
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == "#" and not in_single and not in_double:
+            # начало комментария — обрываем остальную часть
+            break
+        else:
+            out_chars.append(ch)
+        i += 1
+    return "".join(out_chars).rstrip()
+
 def expand_args(args: List[str]) -> List[str]:
 
     #Разворачивает переменные окружения и символ ~ в каждом аргументе.
@@ -101,23 +118,22 @@ def process_command_from_entry() -> None:
 
 # Проигрывание стартового скрипта построчно (имитация диалога)
 def run_startup_script_lines(lines: List[str]) -> None:
-
-    #Проигрывает список строк start-up скрипта, имитируя диалог:
-
     delay_ms = 200
     scheduled_index = 0
     for raw in lines:
         line = raw.rstrip("\n")
-        # Пропускаем пустые строки и комментарии (комментарий — строка, начинающаяся с '#')
-        if not line.strip() or line.lstrip().startswith('#'):
+        # Сначала убираем inline-комментарии
+        cleaned = remove_inline_comment(line).strip()
+        # Если пусто — пропускаем
+        if not cleaned:
             continue
-        # Планируем выполнение конкретной строки с задержкой
-        root.after(delay_ms * scheduled_index, lambda cmd=line: execute_command_line(cmd, show_input=True))
+        # Теперь планируем выполнение именно ОЧИЩЕННОЙ строки
+        root.after(delay_ms * scheduled_index,
+                   lambda cmd=cleaned: execute_command_line(cmd, show_input=True))
         scheduled_index += 1
 
-# Загрузка и запуск стартового скрипта (файла)
-def load_and_run_startup_script(path: str) -> None:
 
+def load_and_run_startup_script(path: str) -> None:
     if not os.path.isfile(path):
         insert_text(text, f"Startup script not found: {path}\n")
         return
@@ -128,8 +144,10 @@ def load_and_run_startup_script(path: str) -> None:
         insert_text(text, f"Failed to read startup script {path}: {e}\n")
         return
 
-    insert_text(text, f"# running startup script: {path}\n")
+    # Заголовок без символа '#', чтобы не воспринимался как комментарий
+    insert_text(text, f"Running startup script: {path}\n")
     run_startup_script_lines(lines)
+
 
 # MAIN — инициализация GUI и запуск
 args = parse_cli_args()
