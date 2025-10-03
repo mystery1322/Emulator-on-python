@@ -6,10 +6,8 @@ from typing import List
 # Здесь мы храним значение --vfs-path
 current_vfs_path: str | None = None
 
-
 # Анализ аргументов командной строки
 def parse_cli_args():
-
     parser = argparse.ArgumentParser(
         description="Emulator - Stage 2 (configuration). Stubs for cd/ls, startup script playback."
     )
