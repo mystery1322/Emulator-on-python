@@ -1,0 +1,4 @@
+# Пример стартового скрипта: покажем приветствие и список
+echo Hello from startup script
+ls
+echo $USERNAME

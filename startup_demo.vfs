@@ -1,0 +1,5 @@
+# Демонстрация cd и ls
+echo Starting demo
+cd 
+ls
+echo Done
